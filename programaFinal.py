@@ -45,6 +45,7 @@ def lat_lon_to_xy(lat, lon, goes_height, goes_longitude)->tuple:
     # Earth's radii for spherical Earth model
     e_radius = 6378.137  # equatorial radius in km
     p_radius = 6356.7523  # polar radius in km
+    ad=1
 
     # Convert lat/lon to radians
     lat_rad = radians(lat)
