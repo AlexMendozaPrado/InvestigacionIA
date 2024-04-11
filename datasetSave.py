@@ -11,7 +11,7 @@ if not os.path.exists(save_directory):
     os.makedirs(save_directory)
 
 dates = date_range(start=start, end=end, freq='H')
-products = ["ABI-L2-TPWC", "ABI-L2-DSRC"]
+products = ["ABI-L2-CODC"]
 
 for product in products:
     for current in dates:
