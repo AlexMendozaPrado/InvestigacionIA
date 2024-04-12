@@ -68,47 +68,7 @@ def file_reading(dataset_path,size)->dict:
                             processed_data = center_crop(ds, mty_lat_lon, size, var, pressure_level)
                             data_dict[var][time_coverage_start] = processed_data
                 print(f'Processed {var} for {time_coverage_start}')
-                if var == 'LVT':
-                    matrix = center_crop(ds, mty_lat_lon, size, 'LVT', pressure_level = 0)
-                    plt.imshow(matrix, cmap='viridis')
-                    plt.colorbar()
-                    plt.show()
-            
-                    matrix = center_crop(ds, mty_lat_lon, size, 'LVT', pressure_level = 25)
-                    plt.imshow(matrix, cmap='viridis')
-                    plt.colorbar()
-                    plt.show()
-                    
-                    matrix = center_crop(ds, mty_lat_lon, size, 'LVT', pressure_level = 50)
-                    plt.imshow(matrix, cmap='viridis')
-                    plt.colorbar()
-                    plt.show()
-                    
-                    matrix = center_crop(ds, mty_lat_lon, size, 'LVT', pressure_level = 75)
-                    plt.imshow(matrix, cmap='viridis')
-                    plt.colorbar()
-                    plt.show()
-                    
-                    matrix = center_crop(ds, mty_lat_lon, size, 'LVT', pressure_level = 100)
-                    plt.imshow(matrix, cmap='viridis')
-                    plt.colorbar()
-                    plt.show()
-                if var == 'COD':
-                    matrix = center_crop(ds, mty_lat_lon, size, 'COD')
-                    plt.imshow(matrix, cmap='viridis')
-                    plt.colorbar()
-                    plt.show()
-                if var == 'LVT':    
-                    matrix = center_crop(ds, mty_lat_lon, size, 'LVT')
-                    plt.imshow(matrix, cmap='viridis')
-                    plt.colorbar()
-                    plt.show()
-                if var == 'LST':    
-                    matrix = center_crop(ds, mty_lat_lon, size, 'LST')
-                    plt.imshow(matrix, cmap='viridis')
-                    plt.colorbar()
-                    plt.show()
-
+        
         ds.close()
     print('Data processed and saved.', data_dict)
     return data_dict
