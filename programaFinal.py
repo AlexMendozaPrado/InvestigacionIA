@@ -11,12 +11,18 @@ import pickle
 def load_data():
     try:
         with open('data_dict.pickle', 'rb') as handle:
+            # Load the entire dictionary stored in the pickle file
             dic_container = pickle.load(handle)
-            dic1 = dic_container.get('dic1', {})
-            dic2 = dic_container.get('dic2', {})
-            return dic1, dic2
+
+        # Remove the dictionaries you no longer need
+        dic_container.pop('dic1', None)  # Remove 'dic1' if it exists
+        dic_container.pop('dic2', None)  # Remove 'dic2' if it exists
+
+        return dic_container
     except (FileNotFoundError, EOFError):
-        return {}, {}
+        # If there's no file, return an empty dictionary
+        return {}
+
 
 # Intenta cargar el diccionario al inicio del script
 try:
@@ -31,7 +37,7 @@ except (FileNotFoundError, EOFError):
 #tpw_ds = netCDF4.Dataset(r"C:\Users\gusta\Downloads\OR_ABI-L2-TPWC-M6_G16_s20210030201173_e20210030203546_c20210030205408.nc")
 #lst_ds = netCDF4.Dataset(r"C:\Users\gusta\Downloads\OR_ABI-L2-LSTC-M6_G16_s20220020101173_e20220020103546_c20220020105278.nc")
 #%%
-def file_reading(dataset_path,size)->dict:
+def file_reading(dataset_path,size,dataset_name)->dict:
     center_lat_lon = (25.6866, -100.3161)  # Monterrey's geographical coordinates
     crop_size_lat_lon = (4, 4)  # Degrees of latitude and longitude for cropping
     nc_files = glob.glob(os.path.join(dataset_path, '*.nc'))
@@ -52,14 +58,20 @@ def file_reading(dataset_path,size)->dict:
             if var in ds.variables:
                 if var == 'COD':
                     processed_data = center_crop(ds, mty_lat_lon, size, var)
+                    data_dict[var][time_coverage_start] = processed_data
+                    save_data(data_dict,dataset_name)
 
                     data_dict[var][time_coverage_start] = processed_data
                 if var == 'TPW':
                     processed_data = center_crop(ds, mty_lat_lon, size, var)
+                    data_dict[var][time_coverage_start] = processed_data
+                    save_data(data_dict,dataset_name)
 
                     data_dict[var][time_coverage_start] = processed_data
                 if var == 'LST':
                     processed_data = center_crop(ds, mty_lat_lon, size, var)
+                    data_dict[var][time_coverage_start] = processed_data
+                    save_data(data_dict,dataset_name)
 
                     data_dict[var][time_coverage_start] = processed_data
                 if var == 'LVT':
@@ -67,15 +79,47 @@ def file_reading(dataset_path,size)->dict:
                         for pressure_level in pressures:
                             processed_data = center_crop(ds, mty_lat_lon, size, var, pressure_level)
                             data_dict[var][time_coverage_start] = processed_data
+                            data_dict[var][time_coverage_start] = processed_data
+                            save_data(data_dict,dataset_name)
                 print(f'Processed {var} for {time_coverage_start}')
         
         ds.close()
     print('Data processed and saved.', data_dict)
     return data_dict
 
-def save_data(dic1,dic2):
+def save_data(partial_data, dataset_name):
+    try:
+        with open('data_dict.pickle', 'rb') as handle:
+            existing_data = pickle.load(handle)
+    except (FileNotFoundError, EOFError):
+        existing_data = {}
+    
+    # Asegúrate de que el diccionario para este conjunto de datos exista.
+    if dataset_name not in existing_data:
+        existing_data[dataset_name] = {}
+    
+    # Para cada variable en los nuevos datos.
+    for var_key, timestamps in partial_data.items():
+        # Si la variable aún no existe en el diccionario, añádela completa.
+        if var_key not in existing_data[dataset_name]:
+            existing_data[dataset_name][var_key] = timestamps
+        else:
+            # Si la variable ya existe, actualiza solo las nuevas marcas de tiempo.
+            for timestamp, value in timestamps.items():
+                # Solo añade la marca de tiempo si no existe; no actualiza las existentes.
+                if timestamp not in existing_data[dataset_name][var_key]:
+                    existing_data[dataset_name][var_key][timestamp] = value
+    
+    # Guarda los datos, asegurándote de que 'dic1' y 'dic2' no estén incluidos.
+    data_to_save = {k: v for k, v in existing_data.items() if k not in ['dic1', 'dic2']}
+    
     with open('data_dict.pickle', 'wb') as handle:
-        pickle.dump({'dic1': dic1, 'dic2': dic2}, handle, protocol=pickle.HIGHEST_PROTOCOL)
+        pickle.dump(data_to_save, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+
+    with open('data_dict.pickle', 'wb') as handle:
+        pickle.dump(data_to_save, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
 
 def lat_lon_square(center, size):
     half_size = size / 2
@@ -217,12 +261,13 @@ def plot_center_crops(ds,var):
         plt.show()
 
 if __name__ == '__main__':
-    print("diccionario previnamente guardado" ,data_dict_f)
-    dataset_path = r"F:/dataSetsperProduct4"
-    size1,size2=4,6
-    data_dict1=file_reading(dataset_path,size1)
-    data_dict2=file_reading(dataset_path,size2)
-    save_data(data_dict1,data_dict2)
+    existing_data = load_data()
+    print("Diccionario previamente guardado", existing_data)
+    dataset_path = r"F:/dataSetsperProduct5"
+    size1, size2 = 4, 6
+    # Process and save data for size 4
+    file_reading(dataset_path, size1, 'dataset_size_4')
+    # Process and save data for size 6
+    file_reading(dataset_path, size2, 'dataset_size_6')
+    print("Diccionario guardado", existing_data)
 
-
-    
