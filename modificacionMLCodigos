@@ -1,0 +1,195 @@
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.ensemble import GradientBoostingRegressor
+from sklearn.svm import SVR
+from scipy.stats import norm
+from scipy.stats import f_oneway
+import os
+from joblib import load, dump
+
+# Resample the data to daily frequency
+data = hourly.resample('D').agg({'TempAire': 'mean',
+                                 'PresBarometr': 'mean',
+                                 'RadSolar': 'mean',
+                                 'RapViento': 'mean',
+                                 'HumRelativa': 'mean',
+                                 'Precipitacion': 'sum'})  # Asumiendo que Precipitacion se suma
+
+# Las columnas ya no necesitan ser aplanadas si solo usas una estadística por variable
+data.columns = ['TempAire_mean', 'PresBarometr_mean', 'RadSolar_mean', 'RapViento_mean', 'HumRelativa_mean', 'Precipitacion_sum']
+
+
+features = data.columns.tolist()
+
+# Titles for the features
+feature_title = ["Average Air Temperature",
+                 "Average Pressure",
+                 "Average Solar Radiation",
+                 "Average Wind Speed",
+                 "Average Relative Humidity",
+                 "Total Precipitation"]
+
+# Units for the features
+feature_unit = ["°C",
+                "hPa",
+                "W/m^2",
+                "m/s",
+                "%",
+                "mm"]
+
+
+
+
+#cambios plot erro density 
+
+def plot_error_density(models, time_steps, window_sizes, features, feature_title, feature_unit, base_dir='ruta_a_tu_carpeta', save=False):
+    """
+    Plot predictive error density for multiple models and window sizes using precalculated residuals.
+
+    Parameters:
+    - models (list): List of model names, e.g., ['GradientBoostingRegressor', 'RandomForestRegressor', 'SVR']
+    - time_steps (list): List of time steps, e.g., ['1h', '3h', '6h']
+    - window_sizes (list): List of window sizes, e.g., [7, 14, 24, 48]
+    - features (list): List of features, e.g., ['PresBarometr', 'RadSolar', 'RapViento']
+    - feature_title (list): Human-readable titles for features.
+    - feature_unit (list): Units for the features.
+    - base_dir (str): Base directory where CSV files are stored.
+    - save (bool): If True, save the plots instead of showing them.
+    """
+    for model in models:
+        for time_step in time_steps:
+            for window_size in window_sizes:
+                for feature, title, unit in zip(features, feature_title, feature_unit):
+                    # Construct file path
+                    file_name = f"{model}_{time_step}_{window_size}_0.csv"
+                    file_path = os.path.join(base_dir, file_name)
+
+                    if os.path.exists(file_path):
+                        # Load the residuals data
+                        residuals = pd.read_csv(file_path)
+
+                        plt.figure(figsize=(8, 6))
+                        for i in range(1, window_size + 1):
+                            residual_col = f'{feature}_ahead{i}'
+                            if residual_col in residuals.columns:
+                                sns.kdeplot(residuals[residual_col], label=f'Day {i}')
+                        
+                        plt.title(f'Error Density for {model} {title} - {time_step} - {window_size} Days')
+                        plt.xlabel(f'Predictive Error ({unit})')
+                        plt.ylabel('Density')
+                        plt.legend()
+                        plt.tight_layout()
+
+                        if save:
+                            if not os.path.exists(f'results/N={window_size}/{model}/Error Density'):
+                                os.makedirs(f'results/N={window_size}/{model}/Error Density')
+                            filename = f'results/N={window_size}/{model}/Error Density/{model}_Error Density_{feature}_{window_size}.svg'
+                            plt.savefig(filename)
+                            print(f"Saved: {filename}")
+                        else:
+                            plt.show()
+                        plt.close()
+                    else:
+                        print(f"File not found: {file_path}")
+
+
+
+#codigo para primer tipo de grafico de analisis comparativo 
+import os
+import pandas as pd
+import matplotlib.pyplot as plt
+
+# Configuración
+models = ['RandomForestRegressor', 'GradientBoostingRegressor', 'SVR', 'LSTM']
+window_sizes = [7, 14, 24, 48]
+features = ['PresBarometr', 'RadSolar', 'RapViento', 'TempAire', 'HumRelativa', 'Precipitacion']
+feature_title = ['Pressure', 'Solar Radiation', 'Wind Speed', 'Air Temperature', 'Relative Humidity', 'Precipitation']
+feature_unit = ['hPa', 'W/m^2', 'm/s', '°C', '%', 'mm']
+
+# Directorio de resultados
+results_dir = 'results/comparative'
+if not os.path.exists(results_dir):
+    os.makedirs(results_dir)
+
+# Función para cargar los residuales y calcular el MAE
+def load_and_calculate_mae(file_path):
+    try:
+        data = pd.read_csv(file_path)
+        mae = data.abs().mean()  # Calcula el MAE para cada columna
+        return mae
+    except FileNotFoundError:
+        print(f"Archivo no encontrado: {file_path}")
+        return pd.Series()
+
+# Procesar cada modelo, tamaño de ventana, y características
+for window_size in window_sizes:
+    plt.figure(figsize=(12, 8))
+    for model in models:
+        mae_values = pd.Series(index=features)  # Para almacenar los valores MAE
+        file_path = f'cache/{model}_Residuals_{window_size}.csv'
+        mae_values = load_and_calculate_mae(file_path)
+        
+        # Graficar el MAE para cada característica
+        for i, feature in enumerate(features):
+            if f'{feature}_ahead{window_size}' in mae_values:
+                plt.plot(range(1, window_size + 1), mae_values[[f'{feature}_ahead{i+1}' for i in range(window_size)]],
+                         label=f'{model} - {feature}', marker='o')
+    
+    plt.title(f'Comparative MAE for Window Size {window_size}')
+    plt.xlabel('Days ahead of prediction')
+    plt.ylabel('MAE')
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
+    plt.savefig(os.path.join(results_dir, f'MAE_comparison_window_{window_size}.png'))
+    plt.close()
+
+    #codigo para segundo grafico de analisis comparativo 
+    # Configuración inicial
+models = ['RandomForestRegressor', 'GradientBoostingRegressor', 'SVM', 'LSTM']
+time_steps = ['1h', '3h', '6h', '12h', '24h']
+window_sizes = [7, 14, 24, 48]
+features = ['PresBarometr', 'RadSolar', 'RapViento', 'TempAire', 'HumRelativa', 'Precipitacion']
+feature_title = ['Pressure', 'Solar Radiation', 'Wind Speed', 'Air Temperature', 'Relative Humidity', 'Precipitation']
+feature_unit = ['hPa', 'W/m^2', 'm/s', '°C', '%', 'mm']
+
+# Asegurar que los directorios existen
+if not os.path.exists('results/comparative'):
+    os.makedirs('results/comparative')
+
+# Función para cargar datos de predicciones
+def load_predictions(model, feature, window_size, time_step):
+    file_path = f'cache/{model}_{time_step}_{window_size}.csv'
+    if os.path.exists(file_path):
+        return pd.read_csv(file_path)[feature]
+    else:
+        return pd.Series(dtype=float)  # Devuelve una serie vacía si el archivo no existe
+
+# Generación de gráficos
+for window_size in window_sizes:
+    for feature, title, unit in zip(features, feature_title, feature_unit):
+        plt.figure(figsize=(10, 6))
+        real_data = pd.read_csv(f'cache/real_data_{window_size}.csv')[feature]  # Asumiendo que tienes datos reales en otro CSV
+        
+        for model in models:
+            for time_step in time_steps:
+                predicted_data = load_predictions(model, feature, window_size, time_step)
+                if not predicted_data.empty:
+                    plt.plot(predicted_data, label=f'{model} {time_step}')
+        
+        plt.plot(real_data, label='Real', color='k', linewidth=2)
+        plt.title(f'{title} Prediction Comparison - {window_size} Days')
+        plt.xlabel('Days')
+        plt.ylabel(f'{unit}')
+        plt.legend()
+        plt.grid(True)
+        plt.tight_layout()
+        plt.savefig(f'results/comparative/{feature}_{window_size}_comparison.png')
+        plt.close()
+    
+
+
+
